@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		title="ConsetFormView"
+		actionBarVisible="false"
+		creationComplete="init()" >
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import spark.utils.TextFlowUtil;
+			import spark.components.supportClasses.StyleableTextField;
+			import spark.skins.mobile.TextAreaSkin;
+			
+			private var webView:StageWebView;
+			
+			private const ShowForm:String = "ShowForm";
+			private const ApprovedForm:String = "ApprovedForm";
+			
+			private var localSO:SharedObject;
+			
+			
+			public function init():void{
+				//this.addEventListener(Event.ADDED_TO_STAGE, resizeWidget);
+				currentState = ShowForm;
+				//consentFormContent.text = "Consent Form"
+				//consentFormContent.skin="spark.skins.mobile.TextAreaSkin"
+				StyleableTextField(consentFormContent.textDisplay).htmlText =  "			   <b>Consent Form</b>\n\nThis is a mobile client for accessing Omegle service. This mobile client is part of a research study conducted by researchers at the University of Colorado, Boulder, CO, USA. As part of this research study, snapshots of the video chat sessions and smartphone sensor data (accelerometer, light sensor, proximity gyroscope, GPS, and audio sensor) will be recorded at regular intervals and transmitted to a secure server. No other personal identifying data will be collected. Data collected at the secure server will be analyzed to understand user behavior of mobile users in online video chat services. This data will not be shared with anyone else other than the project personnel."
+					
+				//consentFormContent.validateNow();
+
+
+			}
+			
+			private function resizeWidget(event:Event):void
+			{
+				trace("Resize Widget");
+				trace(this.stage.fullScreenWidth);
+				//consentFormContent.width = this.stage.fullScreenWidth;
+				//consentFormContent.height = this.stage.fullScreenHeight-200;
+				//acceptbtn.width = this.stage.fullScreenWidth/2;
+				//rejectbtn.width = this.stage.fullScreenWidth/2;
+				
+				webView = new StageWebView();
+				webView.viewPort = new Rectangle( 0, 0, this.stage.stageWidth, this .stage.stageHeight-100); 
+				webView.stage = this.stage; 
+				
+				//webView.addEventListener( LocationChangeEvent.LOCATION_CHANGING,handleLocationChanging);
+				//publicKey = "6Led7gkAAAAAAEAyh-Kt7HTb_oC0chDvQIZ8VtQb";
+				var htmlStr:String="<!DOCTYPE html><html><body><h1>My First Heading</h1><p>My first paragraph.</p></body></html>";
+				webView.loadString(htmlStr);
+				
+			}
+			
+			private function onAccpet():void{
+				currentState = ApprovedForm;
+				localSO = SharedObject.getLocal("Omegle");
+				localSO.data.consentFormApproved = "true";
+				try
+				{
+					localSO.flush();
+				}
+				catch (e:Error)
+				{
+					trace("Cannot write consent formw info to shared object\n");
+				}
+				navigator.pushView(views.OmegleHomeView);
+
+			}
+			
+			private function onReject():void{
+				NativeApplication.nativeApplication.exit();
+			}
+		]]>
+	</fx:Script>
+	
+	<s:states>
+		<s:State name="ShowForm"/>
+		<s:State name="ApprovedForm"/>
+	</s:states>
+	
+	<s:Rect width="100%" height="100%">
+		<s:fill>
+			<s:SolidColor color="0x303030"/>
+		</s:fill>
+	</s:Rect>
+	
+	<s:Scroller width="100%" height="100%">
+		<s:VGroup width="100%" height="100%">
+			<s:TextArea id="consentFormContent" skinClass="spark.skins.mobile.TextAreaSkin" width="100%" height="250%" editable="false" verticalScrollPolicy="auto">
+			</s:TextArea>
+			<s:HGroup width="100%" height="100%" includeIn="ShowForm">
+				<s:Button id = "acceptbtn" label="Accpet" click="onAccpet()" width="50%" height="20%" />
+				<s:Button id = "rejectbtn" label="Reject" click="onReject()" width="50%" height="20%" />
+			</s:HGroup>
+			<s:HGroup width="100%" height="100%" includeIn="ApprovedForm">
+				<s:Label text="Loading App ..."  fontSize="15" color="0xffffff"/>
+			</s:HGroup>
+		</s:VGroup>
+
+		
+	</s:Scroller>
+</s:View>

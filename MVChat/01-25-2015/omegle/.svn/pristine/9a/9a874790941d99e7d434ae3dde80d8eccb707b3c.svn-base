@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ViewNavigatorApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+							xmlns:s="library://ns.adobe.com/flex/spark" applicationDPI="160">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import views.ConsetFormView;
+			import views.OmegleHomeView;
+			
+			private var localSO:SharedObject;
+			
+			override protected function partAdded(partName:String, instance:Object):void
+			{
+				super.partAdded(partName, instance);
+				localSO = SharedObject.getLocal("Omegle");
+				
+				if (localSO.data.hasOwnProperty("consentFormApproved"))
+				{
+					navigator.firstView = views.OmegleHomeView;
+				}
+				else{
+					navigator.firstView = views.ConsetFormView;
+				}
+
+			}
+		]]>
+	</fx:Script>
+</s:ViewNavigatorApplication>
