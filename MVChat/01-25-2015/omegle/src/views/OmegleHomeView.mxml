@@ -382,7 +382,8 @@
 				else{
 					this.netConnection = new NetConnection();
 					this.netConnection.addEventListener(NetStatusEvent.NET_STATUS, this.netConnectionHandler);
-					this.netConnection.connect("rtmfp://stratus.adobe.com/6fd539b64a3ca859d410f2f6-ac89c5a8742e/");
+					//this.netConnection.connect("rtmfp://stratus.adobe.com/6fd539b64a3ca859d410f2f6-ac89c5a8742e/");
+					this.netConnection.connect("rtmfp://rtmfp.omegle.com");
 					trace("netConnection connect");
 					//textOutput.text += "netConnection connect";
 					//textOutput.validateNow();
