@@ -35,8 +35,8 @@
 			import org.osmf.net.NetClient;
 			
 			
-			private var baseUrl:String = "http://10.138.12.150/";
-			private var rtmpBaseUrl:String = "rtmp://10.138.12.150/";
+			private var baseUrl:String = "http://10.138.12.150/"; 
+			private var rtmpBaseUrl:String = "rtmp://10.138.12.150/"; 
 			
 			
 			private var controlledSocket:PacketSocket;
