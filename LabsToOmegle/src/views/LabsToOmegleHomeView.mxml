@@ -1,0 +1,883 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		title="HomeView"
+		xmlns:mx="library://ns.adobe.com/flex/mx" 
+		actionBarVisible="false"
+		creationComplete="init()" 
+		xmlns:flextras="http://www.flextras.com/mxml"
+		viewActivate="backListener_Init()"
+		viewDeactivate="backListener_Close()">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			
+			import com.adobe.serialization.json.JSON;
+			
+			import flash.events.AccelerometerEvent;
+			import flash.events.GeolocationEvent;
+			import flash.sensors.Accelerometer;
+			import flash.sensors.Geolocation;
+			
+			import mx.collections.ArrayList;
+			import mx.formatters.DateFormatter;
+			import mx.graphics.codec.JPEGEncoder;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.http.HTTPService;
+			import mx.utils.Base64Encoder;
+			import mx.utils.ObjectUtil;
+			import mx.utils.UIDUtil;
+			
+			import org.osmf.net.NetClient;
+			import flash.net.URLRequestDefaults;
+			
+			private var baseUrl:String = "http://10.201.12.165/"; 
+			private var rtmpBaseUrl:String = "rtmp://10.201.12.165/";
+			
+			private var controlledSocket:PacketSocket;
+			
+			private var strangerPeerID:String;
+			
+			private var netConnection:NetConnection;
+			private var localStream:NetStream;
+			private var remoteStream:NetStream;
+			private var remoteVideo:Video;
+			private var localVideo:Video;
+			
+			private var mic:Microphone;
+			private var camera:Camera;
+			[Bindable] private var micNames:ArrayList = new ArrayList();
+			private var micIndex:int = 0;
+			[Bindable] private var cameraNames:ArrayList = new ArrayList();
+			private var cameraIndex:int = 0;
+			private var cameraInfo:String;
+			
+			private var localSO:SharedObject;
+			private var uuid:String;
+			private var sessionid:String;
+			private var randID:String;
+			
+			private const NotStart:String = "NotStart";
+			private const NetConnectFail:String = "NetConnectFail";
+			private const Chatting:String = "Chatting";
+			private const Binding:String = "Binding";  // Binding state is not used any more
+			private const Waiting:String = "Waiting";
+			private const Connecting:String = "Connecting";
+			
+			private var disconnectTimer:Timer;
+			
+			private var acc:Accelerometer;
+			private var accInterval:int = 0;			
+			private var accObjs:Object = new Object();	
+			private var accPostDuration:int  = 6300;
+			private var accPostTimer:Timer;
+			
+			private var gps:Geolocation;
+			private var gpsInterval:int = 1000;
+			private var gpsObjs:Object = new Object();
+			private var gpsPostDuration:int = 5300;
+			private var gpsPostTimer:Timer;
+			
+			//private var gyro:Gyroscope;
+			private var gyroInterval:int = 1000;
+			private var gyroObjs:Object = new Object();
+			private var gyroPostDuration:int = 7300;
+			private var gyroPostTimer:Timer;
+			
+			private var imgByteArray:ByteArray;
+			
+			
+			private var webView:StageWebView;
+			
+			private var audio_nc:NetConnection;
+			private var audio_ns:NetStream;
+			private var audioTimer:Timer;
+			
+			private var imgDuration:int = 30000;
+			private var imgTimer:Timer;
+			
+			private var audioCollectDuration:int = 10000;
+			private var audioIdleDuration:int = 30000;
+			
+			private var collectflag:int;
+			
+			private var gyroflag:int;
+			
+			public function init():void{
+				trace("Application Init");
+				
+				URLRequestDefaults.idleTimeout = 1200000;
+				//mic = Microphone.getMicrophone();
+				trace("init");
+				NativeApplication.nativeApplication.addEventListener(Event.DEACTIVATE, onDeactivateApp);
+				currentState = NotStart;
+				localSO = SharedObject.getLocal("Omegle");
+				uuid = getUserID();
+				trace("uuid:\t"+uuid);
+				
+				// load label for spinner 
+				var mics:Array = Microphone.names;
+				mics[0] = new Array("Mic")[0];
+				if (mics)
+				{
+					micNames.source = mics;
+					micSelection.dataProvider = micNames;
+				}
+				else
+				{
+					trace("No microphone available.\n");
+				}			
+				var cameraLen:int = Camera.names.length;
+				var cameras:Array;
+				if(cameraLen == 1){
+					cameras = new Array("Back Cam");
+					cameraNames.source = cameras;
+				}
+				else if(cameraLen == 2){
+					cameras = new Array("Back Cam","Front Cam");
+					cameraNames.source = cameras;
+				}
+				cameraSelection.dataProvider = cameraNames;
+				
+				//select device
+				micIndex = 0;
+				if (localSO.data.hasOwnProperty("micIndex"))
+				{
+					micIndex = localSO.data.micIndex;
+				}
+				
+				micSelection.selectedIndex = micIndex;		
+				cameraIndex=0;
+				if (localSO.data.hasOwnProperty("cameraIndex"))
+				{
+					cameraIndex = localSO.data.cameraIndex;
+				}				
+				cameraSelection.selectedIndex = cameraIndex;
+				udpateCameraInfo(cameraIndex);
+				
+				//load device							
+				mic = Microphone.getMicrophone();
+				if (mic)
+				{						
+					micChanged();
+				}
+				
+				camera = Camera.getCamera(cameraIndex.toString());
+				if (camera)
+				{
+					cameraChanged();
+				}
+				//textInput.enabled = false;
+				sendbtn.enabled = false;
+				textOutput.text = "";
+				textOutput.validateNow();
+				textInput.text = "";
+				textInput.validateNow();
+				
+				collectflag = 1;
+				gyroflag = 0;
+				loadAppStatus();
+				
+				loadParameter();
+			}
+			
+			private function loadAppStatus():void{
+				var parHttpServ:HTTPService = new HTTPService();
+				parHttpServ.url = baseUrl+"cgi-bin/loadAppStatus.cgi";
+				parHttpServ.cancel();
+				parHttpServ.send();
+				parHttpServ.addEventListener("result", loadAppResult);
+				parHttpServ.addEventListener("fault", loadAppFault);
+			}
+			
+			private function loadAppResult(e:ResultEvent):void
+			{	
+				var response:String = e.result.toString();
+				var parArray:Array = response.split("\n");
+				var AppStatus:String = parArray[0].toString().split(":")[1];
+				trace("AppStatus is : "+AppStatus);
+				if(AppStatus.search("false")!=-1){
+					trace("In if of loadAppResult");
+					NativeApplication.nativeApplication.exit();
+				}
+				else if(AppStatus.search("stop")!=-1){
+					trace("In else if of loadAppResult");
+					collectflag = 0;
+					trace("STOP DATA COLLECTION!!!!");
+				}
+			}
+			
+			private function loadAppFault(e:FaultEvent):void
+			{	
+				trace("LoadAppResultError");		
+			}
+			
+			private function loadParameter():void{
+				var parHttpServ:HTTPService = new HTTPService();
+				parHttpServ.url = baseUrl+"cgi-bin/loadParameter.cgi";
+				parHttpServ.cancel();
+				parHttpServ.send();
+				parHttpServ.addEventListener("result", loadParaResult);
+				parHttpServ.addEventListener("fault", loadParaFault);
+			}
+			
+			private function loadParaResult(e:ResultEvent):void
+			{
+				
+			}
+			
+			private function loadParaFault(e:FaultEvent):void
+			{	
+				trace("LoadParaResultError");				
+			}
+			
+			private function getUserID():String{
+				var usrid:String;
+				if (localSO.data.hasOwnProperty("userID"))
+				{
+					usrid = localSO.data.userID;
+					
+				}
+				else{
+					usrid = "mobile-"+UIDUtil.createUID();
+					trace("No UserID exists! Generated!!");
+					localSO.data.userID = usrid;
+					try
+					{
+						localSO.flush();
+					}
+					catch (e:Error)
+					{
+						trace("Cannot write userid info to shared object\n");
+					}
+				}
+				return usrid;
+			}
+			
+			public function connectToServer():void{
+				trace("onConnect");
+				if(this.controlledSocket==null || this.controlledSocket.connected!=true){
+					trace("Connect to Server");
+					var domain:String = "chatserv.omegle.com";
+					//var domain:String = "bajor.omegle.com";
+					var port:int = 1365;
+					this.controlledSocket = new PacketSocket();
+					this.controlledSocket.addEventListener(Event.CONNECT, connectSucceed);
+					this.controlledSocket.addEventListener(Event.CLOSE, closeSucceed);
+					this.controlledSocket.addEventListener(IOErrorEvent.IO_ERROR, ioError);
+					this.controlledSocket.addEventListener(PacketEvent.PACKET, getPacket);
+					this.controlledSocket.connect(domain,port);
+				}
+				else{
+					startVideo();
+				}
+			}
+			
+			public function getRandID() {
+				for (var a = "", b = 0; 8 > b; b++) { 
+					var c = Math.floor(32 * Math.random());
+					a = a + "23456789ABCDEFGHJKLMNPQRSTUVWXYZ".charAt(c);
+				}
+				return a;
+			}
+			
+			public function startVideo():void{
+				trace("start video");
+				var tag:String = "omegleStart";
+				if(randID == "" || randID == null)
+					randID = getRandID();
+				var payload:String = "start?rcs=1&firstevents=1&spid="+netConnection.nearID+"&randid="+randID+"&lang=en&camera="+cameraIndex.toString(); // Append "&m=1" to randID while running on mobile
+				//var payload:String = "start?rcs=1&firstevents=1&spid="+netConnection.nearID+"&randid="+randID+"&lang=en&camera="+cameraIndex.toString()+"&topics=%5B%22mvchat%22%5D"; // Append "&m=1" to randID while running on mobile
+				//var payload:String = "start?rcs=1&firstevents=1&spid="+netConnection.nearID+"&randid="+randID+"&lang=en&camera="+cameraIndex.toString();
+				this.controlledSocket.writePacket(tag,payload);
+			}
+				
+			private function udpateCameraInfo(camIdx:int):void{
+				if(camIdx.toString()=="0")
+					cameraInfo = "back";
+				else
+					cameraInfo = "front";
+				trace("Update Camera Info:\t"+cameraInfo);
+			}
+			
+			private function micChanged(event:Event = null):void
+			{
+				micIndex = micSelection.selectedIndex;			
+				mic = Microphone.getMicrophone(micIndex);
+				
+				// set the new microphne values based on UI
+				mic.gain = 70;
+				mic.noiseSuppressionLevel = -500;
+				mic.setUseEchoSuppression(true);
+				mic.rate = 44;
+				mic.setSilenceLevel(0);	
+				mic.addEventListener(StatusEvent.STATUS, onMicDeviceStatus);
+				mic.addEventListener(ActivityEvent.ACTIVITY, onMicDeviceActivity);
+				
+				if (currentState == Chatting)
+				{	
+					this.localStream.attachAudio(mic);
+				}
+				
+				localSO.data.micIndex = micIndex;
+				try
+				{
+					localSO.flush();
+				}
+				catch (e:Error)
+				{
+					trace("Cannot write mic info to shared object\n");
+				}
+				
+			}
+			
+			private function onMicDeviceStatus(e:StatusEvent):void
+			{
+				trace("Mic status: " + e.code + "\n");
+			}
+			
+			private function onMicDeviceActivity(e:ActivityEvent):void
+			{
+				trace("Mic activity: " + e.activating + "\n");
+			}
+			
+			private function cameraChanged(event:Event = null):void
+			{				
+				cameraIndex = cameraSelection.selectedIndex;
+				udpateCameraInfo(cameraIndex);
+				camera = Camera.getCamera(cameraIndex.toString());		
+				if (camera)
+				{
+					var video 	: Video 	= new Video(160,120);
+					camera.setMode(160, 120, 24);
+					camera.setQuality(0, 75);
+					video.attachCamera(camera);
+					localVideoDisplay.addChild(video);
+					camera.addEventListener(StatusEvent.STATUS, onCameraDeviceStatus);
+					camera.addEventListener(ActivityEvent.ACTIVITY, onCameraDeviceActivity);
+				}		
+				if (currentState == Chatting)
+				{	
+					this.localStream.attachCamera(camera);
+				}					
+				localSO.data.cameraIndex = cameraIndex;
+				try
+				{
+					localSO.flush();
+				}
+				catch (e:Error)
+				{
+					trace("Cannot write camera info to shared object\n");
+				}				
+				
+			}
+			
+			private function onCameraDeviceStatus(e:StatusEvent):void
+			{
+				trace("Camera status: " + e.code + "\n");
+			}
+			
+			private function onCameraDeviceActivity(e:ActivityEvent):void
+			{
+				trace("Camera activity: " + e.activating + "\n");
+			}
+			
+			public function netConnectionHandler(event:NetStatusEvent):void{
+				
+				switch(event.info.code){
+					case "NetConnection.Connect.Success":
+					{
+						trace("NetConnection.Connect.Success!");
+						
+						connectToServer();
+						break;
+					}
+					case "NetConnection.Connect.Failed":
+					{
+						trace("NetConnection.Connect.Failed!");
+						this.netConnection.removeEventListener(NetStatusEvent.NET_STATUS, this.netConnectionHandler);
+						this.netConnection = null;
+						currentState = NetConnectFail;
+						//Deal with fail 
+						break;
+					}
+					case "NetConnection.Connect.Close":
+					{
+						trace("NetConnection.Connect.Close!");
+						this.netConnection = null;
+						this.netConnection.removeEventListener(NetStatusEvent.NET_STATUS, this.netConnectionHandler);
+						if(currentState == Chatting){
+							this.controlledSocket.writePacket("d","");
+							disconnectTimer = new Timer(200,1);
+							//connectTimer = new Timer(150,1);
+							//disconnectTimer.addEventListener(TimerEvent.TIMER,dispatchDisconnect);
+							//connectTimer.addEventListener(TimerEvent.TIMER,dispatchConnect);
+							disconnectTimer.start();
+						}
+						else{
+							if(this.controlledSocket!=null){
+								this.controlledSocket.removeEventListener(Event.CONNECT, connectSucceed);
+								this.controlledSocket.removeEventListener(Event.CLOSE, closeSucceed);
+								this.controlledSocket.removeEventListener(IOErrorEvent.IO_ERROR, ioError);
+								this.controlledSocket.removeEventListener(PacketEvent.PACKET, getPacket);
+								if(this.controlledSocket.connected==true){
+									this.controlledSocket.close();
+								}
+								this.controlledSocket = null;
+							}
+						}
+						currentState = NotStart;
+						//close stream operation
+						break;
+					}
+					default:{
+						trace(event.info.code);
+						break;
+					}
+				}
+			}
+			
+			private function connectSucceed(event: Event):void{
+				trace("Omegle Server Connect Successfully");
+				startVideo();
+			}
+			
+			private function closeSucceed(event: Event):void{
+				trace("Omegle Server Disconnect Successfully");
+				currentState = NotStart;
+				this.controlledSocket = null;
+			}
+			
+			private function ioError(event: IOErrorEvent):void{
+				trace("Omegle Server IOError");
+				if(currentState == Chatting){
+					this.controlledSocket.writePacket("d","");
+					disconnectTimer = new Timer(200,1);
+					//connectTimer = new Timer(150,1);
+					disconnectTimer.addEventListener(TimerEvent.TIMER,dispatchDisconnect);
+					//connectTimer.addEventListener(TimerEvent.TIMER,dispatchConnect);
+					disconnectTimer.start();
+				}
+				else{
+					if(this.controlledSocket!=null){
+						this.controlledSocket.removeEventListener(Event.CONNECT, connectSucceed);
+						this.controlledSocket.removeEventListener(Event.CLOSE, closeSucceed);
+						this.controlledSocket.removeEventListener(IOErrorEvent.IO_ERROR, ioError);
+						this.controlledSocket.removeEventListener(PacketEvent.PACKET, getPacket);
+						if(this.controlledSocket.connected==true){
+							this.controlledSocket.close();
+						}
+						this.controlledSocket = null;
+					}
+				}
+				currentState = NetConnectFail;
+			}
+			
+			private function getPacket(event: PacketEvent):void{
+				trace("Omegle Server Receive Packet");
+				var tag:String = event.tag;
+				var data:String = event.data;
+				trace(tag+"---->"+data);
+				if(tag == 'c'){
+					this.strangerPeerID = data;
+					bindStream();
+				}
+				if(tag == 'd'){
+					disconnectTimer = new Timer(200,1);
+					//connectTimer = new Timer(150,1);
+					disconnectTimer.addEventListener(TimerEvent.TIMER,dispatchDisconnect);
+					//connectTimer.addEventListener(TimerEvent.TIMER,dispatchConnect);
+					disconnectTimer.start();	
+					
+					postNextInfo("0")
+				}
+				if(tag == 'w'){
+					currentState = Waiting;
+					//startDataCollection();
+				}
+				if(tag == 'recaptchaRequired'){
+					doRecaptcha(data.split("=")[1]);
+				}
+				if(tag == 'm'){
+					displayPeerMessage(data);
+				}
+				if(tag == 't'){
+					notifyPeerTyping();
+				}
+				if(tag == 'st'){
+					notifyPeerStopTyping();
+				}
+				if(tag == 'recaptchaRejected'){
+					trace("recaptchaRejected")
+					onStart();
+				}
+			}
+			
+			private function notifyPeerTyping():void{
+				//textOutput.text += "Peer is typing....\n";
+				//textOutput.validateNow();
+			}
+			
+			private function notifyPeerStopTyping():void{
+				var textContent:String = textOutput.text;
+				trace(textContent);
+				//textContent.replace("Peer is typing....","");
+				trace(textContent);
+				//textOutput.text = textContent;
+				//textOutput.validateNow();
+			}
+			
+			private function postNextInfo(flag:String):void{
+				var httpServ:HTTPService = new HTTPService();
+				httpServ.method = "POST";
+				httpServ.url = baseUrl+"cgi-bin/nextInfo.cgi";
+				var request:Object = new Object();
+				request.username = uuid;
+				//trace(uuid)
+				request.session = sessionid;
+				
+				var timeformatter:DateFormatter = new DateFormatter();
+				timeformatter.formatString = "YYY-MM-DD-JJ-NN-SS";
+				request.timestamp = timeformatter.format(new Date());
+				
+				request.data = flag;
+				//trace("In postnextinfo url : "+httpServ.url+" username : " +request.username+" session : "+request.session+" timestamp : "+request.timestamp+" data : "+request.data);
+				//trace("Request object in postNextInfo is : "+request);
+				httpServ.cancel();
+				httpServ.send(request);
+				httpServ.addEventListener("result", httpNextResult);
+				httpServ.addEventListener("fault", httpNextFault);
+				//trace("Next Info Send!!!!!!!!!!!!");
+			}
+			
+			private function httpNextResult(e:ResultEvent):void
+			{	
+				//trace(e.result.toString());
+				trace("Next Info Result: "+e.message.body.toString());
+			}
+			
+			private function httpNextFault(e:FaultEvent):void
+			{	
+				//trace("AccDebug: "+e.message.toString());
+				trace("Next Info Error");			
+			}
+			
+			private function displayPeerMessage(msg:String):void{
+				textOutput.text += "Peer: " + msg + "\n";
+				textOutput.validateNow();
+				
+			}
+			
+			private function doRecaptcha(publicKey:String):void{
+				webView = new StageWebView();
+				webView.viewPort = new Rectangle( 100, 0, this.stage.stageWidth-200, this .stage.stageHeight-100); 
+				webView.stage = this.stage; 
+				
+				//webView.addEventListener( LocationChangeEvent.LOCATION_CHANGING,handleLocationChanging);
+				publicKey = "6Led7gkAAAAAAEAyh-Kt7HTb_oC0chDvQIZ8VtQb";
+				var htmlStr:String="<form onsubmit=document.location = (\"?response=\"+Recaptcha.get_response()+\"&challenge=\"+Recaptcha.get_challenge());"+
+					"return false;\">"+
+					"<script type=\"text/javascript\""+
+					"src=\"http://www.google.com/recaptcha/api/challenge?k="+publicKey+"\">"+
+					"</script>"+
+					"<input type=\"submit\" value=\"Submit\">"+
+					"</form>";
+				webView.loadString(htmlStr);
+			}
+			
+			private function dispatchDisconnect(evt:TimerEvent):void{
+				disconnectTimer.removeEventListener(TimerEvent.TIMER,dispatchDisconnect);
+				disconnectTimer.stop();
+				disconnectTimer = null;
+				unbindStream();
+				trace("--->"+currentState);
+				if(acc!=null && acc.hasEventListener(AccelerometerEvent.UPDATE)){
+					//stopDataCollection();
+				}
+				
+				if(this.controlledSocket!=null){
+					this.controlledSocket.removeEventListener(Event.CONNECT, connectSucceed);
+					this.controlledSocket.removeEventListener(Event.CLOSE, closeSucceed);
+					this.controlledSocket.removeEventListener(IOErrorEvent.IO_ERROR, ioError);
+					this.controlledSocket.removeEventListener(PacketEvent.PACKET, getPacket);
+					if(this.controlledSocket.connected==true){
+						this.controlledSocket.close();
+					}
+					this.controlledSocket = null;
+				}
+				
+				startbtn.label = "Next";
+				currentState = NotStart;
+			}
+			
+			private function unbindStream():void{
+				trace("unbind\n\n");
+				this.strangerPeerID = null;
+				//textInput.enabled = false;
+				sendbtn.enabled = false;
+				textOutput.text ="";
+				textOutput.validateNow();
+				textInput.text = "";
+				textInput.validateNow();
+				if(this.localStream){
+					this.localStream.attachAudio(null);
+					this.localStream.attachCamera(null);
+					this.localStream.close();
+					//this.localStream.removeEventListener(NetStatusEvent.NET_STATUS, outgoingStreamHandler);
+					//this.localStream.close();
+					this.localStream = null;
+					
+				}
+				
+				if(this.remoteStream){
+					this.remoteStream.close();
+					this.remoteStream = null;
+				}
+				if(this.remoteVideo){
+					this.remoteVideo.attachNetStream(null);
+					this.remoteVideoDisplay.removeChild(remoteVideo);
+					this.remoteVideo = null;
+					//this.remoteVideoDisplay.addChild(null);
+				}
+				
+			}
+			
+			private function bindStream():void{
+				trace("binding stream");
+				
+				this.localStream = new NetStream(this.netConnection, NetStream.DIRECT_CONNECTIONS);
+				
+				
+				this.localStream.attachAudio(mic);
+				this.localStream.attachCamera(camera);
+				//this.localStream.addEventListener(NetStatusEvent.NET_STATUS, outgoingStreamHandler);
+				this.localStream.publish("omegle");
+				var c:Object;
+				c = new Object();
+				c.onPeerConnect = function(param1:NetStream):Boolean{  // not sure???
+					/*if(strangerPeerID == null){
+					return true;
+					}
+					return param1.farID == strangerPeerID;*/
+					return true;
+				}
+				this.localStream.client = c;
+				sessionid = generateSessionID();
+				this.remoteStream = new NetStream(this.netConnection, this.strangerPeerID);
+				trace("StrangerPeerID :"+this.strangerPeerID);
+				this.remoteStream.play("omegle");
+				remoteVideo = new Video();
+				remoteVideo.width = 320;
+				remoteVideo.height = 240;
+				remoteVideo.attachNetStream(remoteStream);
+				remoteVideoDisplay.addChild(remoteVideo);
+				
+				currentState = Chatting;
+				
+				sendbtn.enabled = true;
+				
+				//startDataCollection();
+				
+				trace("sessionid:\t"+sessionid);
+				//this.controlledSocket.writePacket("s","Can you see me?");
+				
+			}
+			
+			private function generateSessionID():String{
+				return UIDUtil.createUID();
+			}
+			
+			private function onStart():void{
+				trace("onStart");
+				currentState = Connecting;
+				if(this.netConnection && this.netConnection.connected==true){
+					connectToServer();
+				}
+				else{
+					this.netConnection = new NetConnection();
+					this.netConnection.addEventListener(NetStatusEvent.NET_STATUS, this.netConnectionHandler);
+					this.netConnection.connect("rtmfp://stratus.adobe.com/6fd539b64a3ca859d410f2f6-ac89c5a8742e/");
+					trace("netConnection connect");					
+				}
+				
+			}
+			
+			private function onStop():void{
+				trace("Disconnect");
+				this.controlledSocket.writePacket("d","");
+				disconnectTimer = new Timer(200,1);
+				disconnectTimer.addEventListener(TimerEvent.TIMER,dispatchDisconnect);
+				disconnectTimer.start();
+				
+				postNextInfo("1");
+				
+			}
+			
+			private function onSend():void
+			{
+				if(textInput.text.length>0){
+					var msg:String = textInput.text; 
+					
+					textOutput.text += "You: " + msg + "\n";
+					textOutput.validateNow();
+					
+					var tag:String = "s";
+					var data:String = msg;
+					this.controlledSocket.writePacket(tag,data);
+					trace("I send this message"+tag+"------>"+data);
+					textInput.text = "";
+					textInput.validateNow();
+					
+					postTextMsg(msg);
+				}
+				
+			}
+			
+			private function postTextMsg(msg:String):void{
+				var httpServ:HTTPService = new HTTPService();
+				httpServ.url = baseUrl+"cgi-bin/textdata.cgi";
+				httpServ.method = "POST";
+				var request:Object = new Object();
+				request.username = uuid;
+				request.session = sessionid;
+				
+				var timeformatter:DateFormatter = new DateFormatter();
+				timeformatter.formatString = "YYY-MM-DD-JJ-NN-SS";
+				request.timestamp = timeformatter.format(new Date());
+				trace(timeformatter.format(new Date()));
+				
+				request.data = msg;
+				httpServ.cancel();
+				httpServ.send(request);
+				httpServ.addEventListener("result", httpTextResult);
+				httpServ.addEventListener("fault", httpTextFault);
+				trace("Send a Message to Server!!!!");
+			}
+			
+			
+			private function httpTextResult(e:ResultEvent):void
+			{	
+				//trace(e.result.toString());
+				trace("Text Result: "+e.message.body.toString());
+			}
+			
+			private function httpTextFault(e:FaultEvent):void
+			{	
+				//trace("AccDebug: "+e.message.toString());
+				trace("Text Send Error");			
+			}
+			
+			private function onCancel():void{
+				if(this.controlledSocket!=null){
+					//this.controlledSocket.removeEventListener(Event.CONNECT, connectSucceed);
+					//this.controlledSocket.removeEventListener(Event.CLOSE, closeSucceed);
+					//this.controlledSocket.removeEventListener(IOErrorEvent.IO_ERROR, ioError);
+					//this.controlledSocket.removeEventListener(PacketEvent.PACKET, getPacket);
+					if(this.controlledSocket.connected==true){
+						this.controlledSocket.close();
+					}
+					this.controlledSocket = null;
+				}
+				if(this.netConnection.connected!=true){
+					//this.netConnection.removeEventListener(NetStatusEvent.NET_STATUS, this.netConnectionHandler);
+					this.netConnection.close();
+				}
+				currentState = NotStart;
+			}
+			
+			private function onType():void{
+				if(this.controlledSocket!=null && this.controlledSocket.connected==true){
+					//trace("Typing...");
+					if(currentState == Chatting){
+						var tag:String = "t";
+						var data:String = "";
+						this.controlledSocket.writePacket(tag,data);
+						trace("I am typing new message"+tag);
+					}
+				}
+				
+			}
+			
+			private function stopType():void{
+				if(this.controlledSocket!=null && this.controlledSocket.connected==true){
+					if(currentState == Chatting){
+						var tag:String = "st";
+						var data:String = "";
+						this.controlledSocket.writePacket(tag,data);
+						trace("I stop typing message"+tag);
+					}
+					//trace("Stop Typing...");
+					
+				}
+				
+			}			
+			
+			private function backListener_Init():void
+			{
+				//NativeApplication.nativeApplication.addEventListener(KeyboardEvent.KEY_DOWN, keyDown);
+				//NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.KEEP_AWAKE;
+				trace("Listener Init");
+			}
+			
+			private function backListener_Close():void
+			{				
+				trace("Listener close!!!!!");
+				//NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.NORMAL;
+			}
+			
+			protected function onDeactivateApp(event:Event):void
+			{
+				trace("App Deactivate")
+				collectflag = 1;
+				
+				NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.NORMAL;
+			}
+		]]>
+	</fx:Script>
+	
+	<s:states>
+		<s:State name="NotStart"/>
+		<s:State name="Connecting"/>
+		<s:State name="NetConnectFail"/>
+		<s:State name="Chatting"/>
+		<s:State name="Binding"/> 
+		<s:State name="Waiting"/>
+	</s:states>
+	
+	<s:Scroller width="100%" height="100%">
+		<s:VGroup>			
+			<s:HGroup>
+				<s:VGroup>
+					<s:HGroup>
+						<s:TextInput focusIn="onType()" focusOut="stopType()" id="textInput" width="110" height="40" 
+									 softKeyboardType="default" enter="onSend()" />
+						<s:Button id="sendbtn" label="Send" fontSize="12" width="50"  height="40" click="onSend()"/>
+					</s:HGroup>
+					<s:TextArea id="textOutput" width="160" height="120" editable="false" verticalScrollPolicy="auto" color="black"/>
+					<mx:UIComponent id="localVideoDisplay" width="160" height="120"/>
+					
+				</s:VGroup>
+				<s:VGroup>
+					<s:HGroup  verticalAlign="middle">
+						<flextras:DropDownList id="micSelection" change="micChanged(event)"  fontSize="12" color="black" width="90" height="40" />
+						<flextras:DropDownList id="cameraSelection" change="cameraChanged(event)"  fontSize="12" color="black" width="90" height="40"/>
+						<s:Button id="startbtn" label="Start" click="onStart()" fontSize="12" height="40" includeIn="NotStart,NetConnectFail"/>
+						<s:Button id="stopbtn" label="Disconnect" click="onStop()" fontSize="12" height="40" includeIn="Chatting,Waiting"/>
+						<s:Label text="Network Connection Fail" fontSize="12" verticalAlign="middle" height="40" includeIn="NetConnectFail" color="0xffffff"/>
+						<s:Label text="Please Wait! No User Can Pair" fontSize="10" height="40" verticalAlign="middle" includeIn="Waiting" color="0xffffff"/>
+						<s:Label text="Binding Stream..." fontSize="15" height="40" verticalAlign="middle" includeIn="Binding" color="0xffffff"/>
+						<s:Label text="Connecting..." fontSize="15" height="40" verticalAlign="middle" includeIn="Connecting" color="0xffffff"/>
+						<s:Button id="cancelbtn" label="Cancel" click="onCancel()" fontSize="12"  height="40" includeIn="Connecting"/>
+					</s:HGroup>	
+					<mx:UIComponent id="remoteVideoDisplay" width="320" height="240"/>
+					
+				</s:VGroup>	
+			</s:HGroup>	
+			<s:Label text="NOTE: Use earphone to have better performance" fontSize="15" height="40" verticalAlign="middle" color="0xdf0101"/>
+		</s:VGroup>
+	</s:Scroller>
+</s:View>

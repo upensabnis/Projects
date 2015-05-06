@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		title="ConsetFormView"
+		actionBarVisible="false"
+		creationComplete="init()" >
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import spark.utils.TextFlowUtil;
+			import spark.components.supportClasses.StyleableTextField;
+			import spark.skins.mobile.TextAreaSkin;
+			
+			private var webView:StageWebView;
+			
+			private const ShowForm:String = "ShowForm";
+			private const ApprovedForm:String = "ApprovedForm";
+			
+			private var localSO:SharedObject;
+			
+			
+			public function init():void{
+				//this.addEventListener(Event.ADDED_TO_STAGE, resizeWidget);
+				currentState = ShowForm;
+				//consentFormContent.text = "Consent Form"
+				//consentFormContent.skin="spark.skins.mobile.TextAreaSkin"
+				//StyleableTextField(consentFormContent.textDisplay).htmlText =  "<b>Consent Form</b>\n\nThis is a mobile client for accessing Omegle service. This mobile client is part of a research study conducted by researchers at the University of Colorado, Boulder, CO, USA. As part of this research study, snapshots of the video chat sessions and smartphone sensor data (accelerometer, light sensor, proximity gyroscope, GPS, and audio sensor) will be recorded at regular intervals and transmitted to a secure server. No other personal identifying data will be collected. Data collected at the secure server will be analyzed to understand user behavior of mobile users in online video chat services. This data will not be shared with anyone else other than the project personnel."
+				consentFormContent.text = "CONSENT TO PARTICIPATE IN A RESEARCH STUDY\n\n" +
+					"Study Title: A Study of User Behavior of Mobile Clients in Online Video Chat Systems\n\n" +
+					"1. Purpose and Background\n" +
+					"Realtime, interactive video-based services are fast becoming an integral part of the Internet user experience. These online video-based services are beginning to move to mobile platforms such as smart phones. To address the safety issues of mobile, online video chat systems, it is important to understand the behavior of mobile users. This research will provide us with important information about mobile, online video chat user behavior that will aid in developing highly scalable and safe online video chat system supporting mobile users.\n"+
+					"The goal of our project is to develop a smartphone-based, mobile application for online video chat services and study user behavior of mobile clients. The type of behaviors we are interested in studying are (1) whether users typically use this service outdoors/indoors; (2) what type of lighting is typically used; (3) user positions (sitting, lying down, etc,); (4) how users hold their smartphones while chatting; and (5) typical length of an online video chat session involving a mobile application. We plan to use this information in projects that involve designing techniques to automatically detect misbehaving users, cyber-bullies and victims, and evidence of any crime being planned or committed, etc.\n\n" +
+					"2. Study Tasks and Procedures\n"+
+					"If you agree to participate, two types of information will be collected about your use of this application:\n"+
+					"	1) Snapshots of the online video chat session will be taken at regular intervals and sent to our secure server housed in Computer Science Department at CU-Boulder.\n"+
+					"	2) Sensor data from the smartphone’s accelerometer, gyroscope, GPS, and audio sensor will be recorded at regular intervals and sent to our secure server housed in Computer Science Department at CU-Boulder.\n"+
+					"This information will be collected every time you use the mobile client. No other identifying information (e.g. name, phone id, IP address, etc.) will be collected.\n\n"+
+					"3. Duration\n" +
+					"Information will be collected for a period of up to one year.\n\n" +
+					"4. Study Withdrawal\n" +
+					"You may withdraw from this study at any time by simply deleting the client application from your mobile device.\n\n"+
+					"5. Risks and Discomforts\n"+
+					"There are no more risks posed to the mobile client users beyond what are already present to a regular user of the Omegle service.\n\n"+
+					"6. Benefits\n"+
+					"Aside from being able to use the mobile client for free to access Omegle service, there is no direct benefit to participants.\n\n" +
+					"7. Confidentiality\n"+
+					"All data collected from this study will be stored on our password-protected server. This data will be kept completely confidential in our database and will not be shared with any other people outside of the PI and researchers on this project. All snapshots included in research reports will be appropriately blurred to protect user privacy.\n"+
+					"These are some reasons that we may need to share the information you give us with others:\n"+
+					"	·If it is required by law.\n" +
+					"	·If we think you or someone else could be harmed.\n" +
+					"	·Sponsors, government agencies or research staff sometimes look at forms like this and other study records. They do this to make sure the research is done safely and legally. Organizations that may look at study records include:\n" +
+					"		i. Office for Human Research Protections or other federal, state, or international regulatory agencies\n" +
+					"		ii. The University of Colorado Boulder Institutional Review Board\n" +
+					"		iii. The sponsor or agency supporting the study\n\n" +
+					"8. Compensation\n" +
+					"There is no compensation provided for participating in this study other than the ability to use the mobile client application for free.\n\n" +
+					"9. Participant Rights\n" +
+					"Taking part in this study is your choice. You may choose either to take part or not take part in the study. If you decide to take part in this study, you may leave the study at any time. No matter what decision you make, there will be no penalty to you in any way. You will not lose any of your regular benefits. We will tell you if we learn any new information that could change your mind about being in this research study. For example, we will tell you about information that could affect your health or well-being.\n\n" +
+					"10. Contacts and Questions\n" +
+					"1). For questions, concerns, or complaints about this study, call IRB at (303) 735-3702.\n"+  
+					"2). If you are injured as a result of participating in this study or for questions about a study-related injury, call the Principal Investigator, Lei Tian at (720) 256-0421.\n" +
+					"3). If you have questions about your rights as a research study participant, you can call the Institutional Review Board (IRB). The IRB is independent from the research team. You can contact the IRB if you have concerns or complaints that you do not want to talk to the study team about. The IRB phone number is (303) 735-3702.\n\n" +
+					"11. Agreement Consent\n" +
+					"I have read (or someone has read to me) this form. I am aware that I am being asked to be in a research study. I have had a chance to ask all the questions I have at this time. I have had my questions answered in a way that is clear. By clicking the accept button below, I voluntarily agree to be in this study.\n\n"+
+					"I am not giving up any legal rights by signing this form."
+					
+				consentFormContent.validateNow();
+
+
+			}
+			
+			private function resizeWidget(event:Event):void
+			{
+				trace("Resize Widget");
+				trace(this.stage.fullScreenWidth);
+				//consentFormContent.width = this.stage.fullScreenWidth;
+				//consentFormContent.height = this.stage.fullScreenHeight-200;
+				//acceptbtn.width = this.stage.fullScreenWidth/2;
+				//rejectbtn.width = this.stage.fullScreenWidth/2;
+				
+				webView = new StageWebView();
+				webView.viewPort = new Rectangle( 0, 0, this.stage.stageWidth, this .stage.stageHeight-100); 
+				webView.stage = this.stage; 
+				
+				//webView.addEventListener( LocationChangeEvent.LOCATION_CHANGING,handleLocationChanging);
+				//publicKey = "6Led7gkAAAAAAEAyh-Kt7HTb_oC0chDvQIZ8VtQb";
+				var htmlStr:String="<!DOCTYPE html><html><body><h1>My First Heading</h1><p>My first paragraph.</p></body></html>";
+				webView.loadString(htmlStr);
+				
+			}
+			
+			private function onAccpet():void{
+				currentState = ApprovedForm;
+				localSO = SharedObject.getLocal("Omegle");
+				localSO.data.consentFormApproved = "true";
+				try
+				{
+					localSO.flush();
+					navigator.pushView(views.LabsToOmegleHomeView);
+				}
+				catch (e:Error)
+				{
+					trace("Cannot write consent form info to shared object\n");
+				}
+				
+
+			}
+			
+			private function onReject():void{
+				NativeApplication.nativeApplication.exit();
+			}
+		]]>
+	</fx:Script>
+	
+	<s:states>
+		<s:State name="ShowForm"/>
+		<s:State name="ApprovedForm"/>
+	</s:states>
+	
+	<s:Rect width="100%" height="100%">
+		<s:fill>
+			<s:SolidColor color="0x303030"/>
+		</s:fill>
+	</s:Rect>
+	
+	<s:Scroller width="100%" height="100%">
+		<s:VGroup width="100%" height="100%">
+			<s:TextArea id="consentFormContent" skinClass="spark.skins.mobile.TextAreaSkin" width="100%" height="250%" editable="false" verticalScrollPolicy="auto"/>
+			<s:HGroup width="100%" height="100%" includeIn="ShowForm">
+				<s:Button id = "acceptbtn" label="Accept" click="onAccpet()" width="50%" height="20%" />
+				<s:Button id = "rejectbtn" label="Reject" click="onReject()" width="50%" height="20%" />
+			</s:HGroup>
+			<s:HGroup width="100%" height="100%" includeIn="ApprovedForm">
+				<s:Label text="Loading App ..."  fontSize="15" color="0xffffff"/>
+			</s:HGroup>
+		</s:VGroup>
+
+		
+	</s:Scroller>
+</s:View>

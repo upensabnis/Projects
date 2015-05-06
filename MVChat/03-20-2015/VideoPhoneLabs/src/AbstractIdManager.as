@@ -48,6 +48,7 @@
  		 */
  		public function register(user:String, id:String):void
  		{
+			trace("Values sending to doRegister : user = "+user+" and id = "+id);
  			doRegister(user, id);
  		}
  		

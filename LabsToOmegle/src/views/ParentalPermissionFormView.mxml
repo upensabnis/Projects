@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		title="ParentalPermissionFormView"
+		actionBarVisible="false"
+		creationComplete="init()" >
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import spark.components.supportClasses.StyleableTextField;
+			import spark.skins.mobile.TextAreaSkin;
+			import spark.utils.TextFlowUtil;
+			
+			
+			private var localSO:SharedObject;
+			
+			
+			public function init():void{
+				//consentFormContent.text = "Consent Form"
+				//consentFormContent.skin="spark.skins.mobile.TextAreaSkin"
+				//StyleableTextField(consentFormContent.textDisplay).htmlText =  "<b>Consent Form</b>\n\nThis is a mobile client for accessing Omegle service. This mobile client is part of a research study conducted by researchers at the University of Colorado, Boulder, CO, USA. As part of this research study, snapshots of the video chat sessions and smartphone sensor data (accelerometer, light sensor, proximity gyroscope, GPS, and audio sensor) will be recorded at regular intervals and transmitted to a secure server. No other personal identifying data will be collected. Data collected at the secure server will be analyzed to understand user behavior of mobile users in online video chat services. This data will not be shared with anyone else other than the project personnel."
+				parentalPermissionFormContent.text = "Parental Permission Form\n\n"
+				//consentFormContent.validateNow();
+				
+				
+			}
+			
+			
+			private function onAccpet():void{
+				localSO = SharedObject.getLocal("Omegle");
+				localSO.data.parentalPermissionForm = "true";
+				try
+				{
+					localSO.flush();
+					navigator.pushView(views.ConsetFormView);
+				}
+				catch (e:Error)
+				{
+					trace("Cannot write parental permission info to shared object\n");
+				}
+				
+				
+			}
+			
+			private function onReject():void{
+				NativeApplication.nativeApplication.exit();
+			}
+		]]>
+	</fx:Script>
+	
+	<s:Rect width="100%" height="100%">
+		<s:fill>
+			<s:SolidColor color="0x303030"/>
+		</s:fill>
+	</s:Rect>
+	
+	<s:Scroller width="100%" height="100%">
+		<s:VGroup width="100%" height="100%">
+			<s:TextArea id="parentalPermissionFormContent" skinClass="spark.skins.mobile.TextAreaSkin" width="100%" height="250%" editable="false" verticalScrollPolicy="auto"/>
+			<s:HGroup width="100%" height="100%">
+				<s:Button id = "acceptbtn" label="Accept" click="onAccpet()" width="50%" height="20%" />
+				<s:Button id = "rejectbtn" label="Reject" click="onReject()" width="50%" height="20%" />
+			</s:HGroup>
+		</s:VGroup>
+		
+		
+	</s:Scroller>
+	
+</s:View>

@@ -100,6 +100,7 @@
             request.username = user
             request.identity = id;
             mHttpService.cancel();
+			trace("In HTTP id manager befre creating starting a connection  : "+request.username+" and "+request.identity);
             mHttpService.send(request);
                 
             // refresh registration with web service in every 30 minutes

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ViewNavigatorApplication splashScreenImage="@Embed(source='assets/video_chat3.png')"
+							xmlns:fx="http://ns.adobe.com/mxml/2009" 
+							xmlns:s="library://ns.adobe.com/flex/spark" applicationDPI="160">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import views.AgeSelectView;
+			import views.ConsetFormView;
+			import views.LabsToOmegleHomeView;
+			import views.ParentalPermissionFormView;
+			
+			private var localSO:SharedObject;
+			
+			override protected function partAdded(partName:String, instance:Object):void
+			{
+				super.partAdded(partName, instance);
+				localSO = SharedObject.getLocal("Omegle");
+				
+				//navigator.firstView = views.OmegleHomeView;
+				
+				if (localSO.data.hasOwnProperty("consentFormApproved"))
+				{
+					navigator.firstView = views.LabsToOmegleHomeView;
+				}
+				else if(localSO.data.hasOwnProperty("ageInfo")){
+					var ageInfo:String = localSO.data.ageInfo;
+					if(ageInfo == "I am above 18"){
+						navigator.firstView = views.ConsetFormView;
+					}
+					else{
+						navigator.firstView = views.AgeSelectView;
+					}
+				}
+				else{
+					navigator.firstView = views.AgeSelectView;
+				}
+				
+			}
+		]]>
+	</fx:Script>
+</s:ViewNavigatorApplication>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		title="AgeSelectView" 
+		actionBarVisible="false"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+		creationComplete="init()">
+	<fx:Declarations>
+		<s:RadioButtonGroup id="ageCate" itemClick="handleAgeSelection(event)"/>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.events.ItemClickEvent;
+			
+			import spark.components.supportClasses.StyleableTextField;
+			import spark.skins.mobile.TextAreaSkin;
+			import spark.utils.TextFlowUtil;
+			
+			private var ageChoice:String;
+			private var localSO:SharedObject;
+			
+			public function init():void{
+				ageRequirmentContent.text =  "Do not use this application if you are under 18"
+				ageRequirmentContent.validateNow();
+				ageChoice = "Not Selected";
+			}
+			
+			public function handleAgeSelection(event:ItemClickEvent):void{
+				//Alert("EEEE");
+				ageChoice = event.label;
+			}
+			
+			public function onSubmit():void{
+				localSO = SharedObject.getLocal("Omegle");
+				localSO.data.ageInfo = ageChoice;
+				try
+				{
+					localSO.flush();
+					if(ageChoice == "I am under 18"){
+						NativeApplication.nativeApplication.exit();
+					}
+					/*else if(ageChoice == "I am 13 to 18"){
+						navigator.pushView(views.ParentalPermissionFormView);
+					}*/
+					else if(ageChoice == "I am above 18"){
+						navigator.pushView(views.ConsetFormView);
+					}
+				}
+				catch (e:Error)
+				{
+					trace("Cannot write age info to shared object\n");
+				}
+				
+
+			}
+		]]>
+	</fx:Script>
+	
+	<s:Rect width="100%" height="100%">
+		<s:fill>
+			<s:SolidColor color="0x303030"/>
+		</s:fill>
+	</s:Rect>
+	
+	<s:Scroller width="100%" height="100%">
+		<s:VGroup width="100%" height="100%">
+			<s:TextArea id="ageRequirmentContent" skinClass="spark.skins.mobile.TextAreaSkin" width="100%" editable="false" verticalScrollPolicy="auto"/>
+			<s:RadioButton groupName="ageCate" id="underThirteen" value="underThirteen" label="I am under 18" color="0x000000"/>
+			<s:RadioButton groupName="ageCate" id="aboveEighteen" value="aboveEighteen" label="I am above 18" color="0x000000"/>
+			<s:Button id="submitbtn" label="Submit" click="onSubmit()" />
+		</s:VGroup>
+	</s:Scroller>
+</s:View>

@@ -31,7 +31,7 @@
 			//private const DeveloperKey:String = "afd2ac150cd9b963a879bd83-41d2f81ff224";
 			// recent key by upendra : afd2ac150cd9b963a879bd83-41d2f81ff224
 			private const DeveloperKey:String = "6fd539b64a3ca859d410f2f6-ac89c5a8742e";
-			private const WebServiceUrl:String = "http://10.201.13.26:85/cgi-bin/reg.cgi";
+			private const WebServiceUrl:String = "http://10.0.0.11:8134/cgi-bin/reg.cgi";
 			//private const WebServiceUrl:String = "http://10.0.0.15:85/cgi-bin/reg.cgi";
 			// please insert your web service URL here for exchanging peer ID
 			//private const WebServiceUrl:String = "rtmfp://p2p.rtmfp.net/afd2ac150cd9b963a879bd83-41d2f81ff224";
@@ -392,6 +392,7 @@
               	idManager.addEventListener("lookupSuccess", idManagerEvent);
               	idManager.addEventListener("idManagerError", idManagerEvent);
               	
+				trace("Values sending to register : user = "+userNameInput.text+" and id = "+netConnection.nearID);
               	idManager.register(userNameInput.text, netConnection.nearID);
 				status("Reached here in connectSuccess");
 			}
@@ -485,6 +486,7 @@
 				}
 				else
 				{
+					trace("e.type is : "+e.type);
 					// all error messages ar IdManagerError type
 					var error:IdManagerError = e as IdManagerError;
 					status("Just before Error description: \n");

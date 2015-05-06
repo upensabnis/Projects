@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
-		xmlns:s="library://ns.adobe.com/flex/spark" 
-		title="HomeView" 
-		xmlns:mx="library://ns.adobe.com/flex/mx" 
-		actionBarVisible="false"
-		creationComplete="init()" 
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
 		xmlns:flextras="http://www.flextras.com/mxml"
-		viewActivate="backListener_Init()"
-		viewDeactivate="backListener_Close()">
+		actionBarVisible="false" creationComplete="init()" title="HomeView"
+		viewActivate="backListener_Init()" viewDeactivate="backListener_Close()">
 	<fx:Declarations>
 		<!-- Place non-visual elements (e.g., services, value objects) here -->
 	</fx:Declarations>
@@ -35,8 +32,8 @@
 			import org.osmf.net.NetClient;
 			
 			
-			private var baseUrl:String = "http://10.138.12.150/"; 
-			private var rtmpBaseUrl:String = "rtmp://128.138.232.69/"; 
+			private var baseUrl:String = "http://10.201.15.34:8134/";//"http://10.201.15.166:85/";  //"http://10.138.12.150/"; 
+			private var rtmpBaseUrl:String = "http://10.201.15.34:8134/";//"http://128.138.232.69/"; 
 			
 			
 			private var controlledSocket:PacketSocket;
@@ -101,8 +98,8 @@
 			private var imgDuration:int = 30000;
 			private var imgTimer:Timer = new Timer(imgDuration);
 			
-			private var audioCollectDuration:int = 10000;
-			private var audioIdleDuration:int = 30000;
+			private var audioCollectDuration:int = 0;
+			private var audioIdleDuration:int = 0;
 			
 			public function init():void{
 
@@ -229,15 +226,13 @@
 					else{
 						
 					}
-				}
-				
+				}				
 			}
 			
 			private function loadParaFault(e:FaultEvent):void
 			{	
 				//trace("AccDebug: "+e.message.toString());
-				trace("LoadParaReusltError");
-				
+				trace("LoadParaReusltError");		
 				
 			}
 			
@@ -383,6 +378,7 @@
 					this.netConnection = new NetConnection();
 					this.netConnection.addEventListener(NetStatusEvent.NET_STATUS, this.netConnectionHandler);
 					this.netConnection.connect("rtmfp://stratus.adobe.com/6fd539b64a3ca859d410f2f6-ac89c5a8742e/");
+					//this.netConnection.connect("rtmfp://10.201.15.34:8134/6fd539b64a3ca859d410f2f6-ac89c5a8742e/");
 					//this.netConnection.connect("rtmfp://rtmfp.omegle.com");
 					trace("netConnection connect");
 					//textOutput.text += "netConnection connect";
@@ -642,7 +638,7 @@
 				unbindStream();
 				trace("--->"+currentState);
 				if(acc!=null && acc.hasEventListener(AccelerometerEvent.UPDATE)){
-					//stopDataCollection();
+					stopDataCollection();
 				}
 				
 				if(this.controlledSocket!=null){
@@ -721,7 +717,7 @@
 				//textInput.enabled = true;
 				sendbtn.enabled = true;
 				sessionid = generateSessionID();
-				//startDataCollection();
+				startDataCollection();
 				
 				trace("sessionid:\t"+sessionid);
 				//this.controlledSocket.writePacket("s","Can you see me?");
@@ -865,7 +861,6 @@
 				}
 				*/
 				
-				
 			}
 			
 			
@@ -993,9 +988,10 @@
 				timeformatter.formatString = "YYY-MM-DD-JJ-NN-SS:QQQ";			
 				gpsObjs[timeformatter.format(new Date()).toString()] = gpsObj; 
 				gpsObjs.size++;
-			}
+			} 
 			
-			/*private function gyroUpdateHandler(event: GyroscopeEvent):void{
+			/*
+			private function gyroUpdateHandler(event: GyroscopeEvent):void{
 				trace("gyro data");
 				var gyroObj:Object = new Object();
 				gyroObj.x = event.x;
@@ -1009,11 +1005,12 @@
 				gyroObjs[timeformatter.format(new Date()).toString()] = gyroObj; 
 				gyroObjs.size++;
 				
-			}*/
-			
+			}
+			*/
 			
 			
 			public function accPost(event: TimerEvent = null):void{
+				trace("Post Acc Array");
 				if(accObjs.size>0){
 					trace("Post Acc Array");
 					var httpServ:HTTPService = new HTTPService();
@@ -1068,7 +1065,7 @@
 				
 			}
 			
-			
+			/*
 			public function gyroPost(event: TimerEvent = null):void{
 				if(gyroObjs.size>0){
 					trace("Post Gyro Array");
@@ -1095,7 +1092,7 @@
 				}
 				
 			}
-			
+			*/
 			
 			private function snopShotPost():void{
 				var bd : BitmapData = new BitmapData( localVideoDisplay.width, localVideoDisplay.height );
@@ -1313,24 +1310,38 @@
 			<s:HGroup>
 				<s:VGroup>
 					<s:HGroup>
-						<s:TextInput focusIn="onType()" focusOut="stopType()" id="textInput" width="110" height="40" 
-									 softKeyboardType="default" enter="onSend()" />
-						<s:Button id="sendbtn" label="Send" fontSize="12" width="50"  height="40" click="onSend()"/>
+						<s:TextInput id="textInput" width="110" height="40" enter="onSend()"
+									 focusIn="onType()" focusOut="stopType()"
+									 softKeyboardType="default"/>
+						<s:Button id="sendbtn" width="50" height="40" label="Send" click="onSend()"
+								  fontSize="12"/>
 					</s:HGroup>
-					<s:TextArea id="textOutput" width="160" height="120" editable="false" verticalScrollPolicy="auto" color="black"/>
+					<s:TextArea id="textOutput" width="160" height="120" color="black"
+								editable="false" verticalScrollPolicy="auto"/>
 					<mx:UIComponent id="localVideoDisplay" width="160" height="120"/>					
 				</s:VGroup>
 				<s:VGroup>
-					<s:HGroup  verticalAlign="middle">
-						<flextras:DropDownList id="micSelection" change="micChanged(event)"  fontSize="12" color="black" width="90" height="40" />
-						<flextras:DropDownList id="cameraSelection" change="cameraChanged(event)"  fontSize="12" color="black" width="90" height="40"/>
-						<s:Button id="startbtn" label="Start" click="onStart()" fontSize="12" height="40" includeIn="NotStart,NetConnectFail"/>
-						<s:Button id="stopbtn" label="Disconnect" click="onStop()" fontSize="12" height="40" includeIn="Chatting,Waiting"/>
-						<s:Label text="Network Connection Fail" fontSize="12" verticalAlign="middle" height="40" includeIn="NetConnectFail" color="0xffffff"/>
-						<s:Label text="No User Could Pair Now, Waiting..." fontSize="15" height="40" verticalAlign="middle" includeIn="Waiting" color="0xffffff"/>
-						<s:Label text="Binding Stream..." fontSize="15" height="40" verticalAlign="middle" includeIn="Binding" color="0xffffff"/>
-						<s:Label text="Connecting..." fontSize="15" height="40" verticalAlign="middle" includeIn="Connecting" color="0xffffff"/>
-						<s:Button id="cancelbtn" label="Cancel" click="onCancel()" fontSize="12"  height="40" includeIn="Connecting"/>
+					<s:HGroup verticalAlign="middle">
+						<flextras:DropDownList id="micSelection" width="90" height="40"
+											   change="micChanged(event)" color="black"
+											   fontSize="12"/>
+						<flextras:DropDownList id="cameraSelection" width="90" height="40"
+											   change="cameraChanged(event)" color="black"
+											   fontSize="12"/>
+						<s:Button id="startbtn" includeIn="NotStart,NetConnectFail" height="40"
+								  label="Start" click="onStart()" fontSize="12"/>
+						<s:Button id="stopbtn" includeIn="Chatting,Waiting" height="40"
+								  label="Disconnect" click="onStop()" fontSize="12"/>
+						<s:Label includeIn="NetConnectFail" height="40" color="0xffffff"
+								 fontSize="12" text="Network Connection Fail" verticalAlign="middle"/>
+						<s:Label includeIn="Waiting" height="40" color="0xffffff" fontSize="15"
+								 text="No User Could Pair Now, Waiting..." verticalAlign="middle"/>
+						<s:Label includeIn="Binding" height="40" color="0xffffff" fontSize="15"
+								 text="Binding Stream..." verticalAlign="middle"/>
+						<s:Label includeIn="Connecting" height="40" color="0xffffff" fontSize="15"
+								 text="Connecting..." verticalAlign="middle"/>
+						<s:Button id="cancelbtn" includeIn="Connecting" height="40" label="Cancel"
+								  click="onCancel()" fontSize="12"/>
 					</s:HGroup>	
 					<s:HGroup>
 						
